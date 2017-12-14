@@ -7,12 +7,12 @@ from yast import *
 from syslog import syslog, LOG_INFO, LOG_ERR, LOG_DEBUG, LOG_EMERG, LOG_ALERT
 
 def dump(obj):
-    print "len obj %d"%len(obj)
+    print ("len obj %d"%len(obj))
     i = 0
-    print "cn %s"%obj[0]
+    print ("cn %s"%obj[0])
     for key in obj[1].keys():
         value = obj[1][key]
-        print "item[%d] key %s value type %s value ->%s<-"%(i,key, type(value), value)
+        print ("item[%d] key %s value type %s value ->%s<-"%(i,key, type(value), value))
         i = i + 1
             
 UserDataModel = {
@@ -96,14 +96,14 @@ class TabModel:
                     continue
                 if key in self.props_orig.keys():
                     if self.props_map[key] != self.props_orig[key]:
-                        print 'attribute %s changed.. old %s -> new %s'%(key, self.props_orig.get(key, [])[-1], self.get_value(key))
+                        print ('attribute %s changed.. old %s -> new %s'%(key, self.props_orig.get(key, [])[-1], self.get_value(key)))
                         if len(self.props_map[key]):
-                            print "deleting %s"%key
+                            print ("deleting %s"%key)
                             modattr[key] = []
                         else:
                             modattr[key] = self.props_map[key]
                 else:
-                    print 'attribute was added %s ->%s<-'%(key, self.props_map[key])
+                    print ('attribute was added %s ->%s<-'%(key, self.props_map[key]))
                     modattr[key] = self.props_map[key]
 
             if conn.update(self.props_map['distinguishedName'][-1], self.props_orig, modattr, {}):
@@ -138,7 +138,7 @@ class TabProps(object):
         self.current_tab = next_tab
         while True:
             ret = UI.UserInput()
-            print "tab dialog input is %s"%ret
+            print ("tab dialog input is %s"%ret)
             if str(ret) in self.contents.keys():
                 previous_tab = next_tab
                 next_tab = str(ret)
@@ -154,9 +154,9 @@ class TabProps(object):
    # return True (continue processing user input)
    # return False to break out
     def HandleInput(self, ret):
-        print 'TabProps.Handleinput %s'%ret
+        print ('TabProps.Handleinput %s'%ret)
         if str(ret) in ('ok', 'cancel', 'apply') :
-            print 'updating model from tab view %s'%self.current_tab
+            print ('updating model from tab view %s'%self.current_tab)
             self.tabModel.update_from_view(self.contents[self.current_tab]['data'])
             if str(ret) != 'cancel':
                 self.tabModel.apply_changes(self.conn)
@@ -194,7 +194,7 @@ class UserProps(TabProps):
    # return True (continue processing user input)
    # return False to break out
     def HandleInput(self, ret):
-        print 'UserProps.Handleinput %s'%ret
+        print ('UserProps.Handleinput %s'%ret)
         return TabProps.HandleInput(self, ret)
 
 ComputerDataModel = {
@@ -352,6 +352,7 @@ class ADUC:
         while True:
             ret = UI.UserInput()
             choice = UI.QueryWidget('aduc_tree', 'Value')
+            print ("input is %s choice is %s"%(ret,choice))
             if str(ret) == 'abort' or str(ret) == 'cancel':
                 break
             elif str(ret) == 'aduc_tree':
@@ -388,16 +389,27 @@ class ADUC:
         return Table(Id('comp_items'), Opt('notify'), Header('Name', 'Type', 'Description'), items)
 
     def __aduc_tree(self):
-        return Tree(Id('aduc_tree'), Opt('notify'), 'Active Directory Users and Computers', [
+        return VBox(
+                Tree(Id('aduc_tree'), Opt('notify'), 'Active Directory Users and Computers', [
             Item(self.realm.lower(), True, [
                 Item('Users', True),
                 Item('Computers', True),
             ]),
-        ])
+        ]),
+                HBox(PushButton(Id('new'), "New"), PushButton(Id('delete'), "Delete"))
+                )
+
 
     def __aduc_page(self):
         return HBox(
             HWeight(1, self.__aduc_tree()),
             HWeight(2, ReplacePoint(Id('rightPane'), Empty()))
         )
+    def __new_user(self):
+        return VBox(
+                Left(Left(HBox(
+                InputField(Id('givenName'), Opt('hstretch'), UserDataModel['general']['givenName'], model.get_value('givenName')),
+                InputField(Id('initials'), Opt('hstretch'), UserDataModel['general']['initials'], model.get_value('initials')))),
+                Left(InputField(Id('sn'), Opt('hstretch'), UserDataModel['general']['sn'], model.get_value('sn')))))
+
 
