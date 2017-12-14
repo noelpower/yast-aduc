@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 import copy
-from complex import Connection
+from complex import ADUCConnection as Connection
 from yast import import_module
 import_module('Wizard')
 import_module('UI')
