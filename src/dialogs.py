@@ -99,17 +99,19 @@ class TabModel:
                     continue
                 if key in self.props_orig.keys():
                     if self.props_map[key] != self.props_orig[key]:
-                        print ('attribute %s changed.. old %s -> new %s'%(key, self.props_orig.get(key, [])[-1], self.get_value(key)))
-                        if len(self.props_map[key]):
+                        print ('attribute %s changed.. old [%s] -> new [%s]'%(key, self.props_orig.get(key, [])[-1], self.get_value(key)))
+                        if len(self.get_value(key)) == 0:
                             print ("deleting %s"%key)
                             modattr[key] = []
                         else:
+                            print ("modifying %s"%key)
                             modattr[key] = self.props_map[key]
                 else:
                     print ('attribute was added %s ->%s<-'%(key, self.props_map[key]))
                     modattr[key] = self.props_map[key]
 
             if conn.update(self.props_map['distinguishedName'][-1], self.props_orig, modattr, {}):
+                print ("update succeeded")
                 # sync attributes with succsessful ldap commit
                 for key in modattr:
                     # modified
@@ -119,6 +121,8 @@ class TabModel:
                     else:
                         self.props_orig.pop(key, None)
                         self.props_map.pop(key, None)
+            else:
+                print ("update failed")
 
 class TabProps(object):
     def __init__(self, conn, obj, contents, start_tab):

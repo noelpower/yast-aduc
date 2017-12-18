@@ -7,7 +7,20 @@ import uuid
 import re
 from subprocess import Popen, PIPE
 from syslog import syslog, LOG_INFO, LOG_ERR, LOG_DEBUG, LOG_EMERG, LOG_ALERT
-from ldap3 import Server, Connection, Tls, SASL, KERBEROS, ALL, SUBTREE,  ALL_ATTRIBUTES
+from ldap3 import Server, Connection, Tls, SASL, KERBEROS, ALL, SUBTREE,  ALL_ATTRIBUTES, MODIFY_REPLACE, MODIFY_ADD
+
+def modlist(in_mod_attrs):
+    out_mod_attrs = {}
+    for key in in_mod_attrs:
+        out_mod_attrs[key] = (MODIFY_REPLACE, in_mod_attrs[key])
+    return out_mod_attrs
+
+def addlist(in_add_attrs):
+    out_add_attrs = {}
+    for key in in_add_attrs:
+        out_add_attrs[key] = (MODIFY_ADD, in_add_attrs[key])
+    return out_add_attrs
+
 # the existing code expects the results in the format the python-ldap module
 # would use to come back. Results are represented as a list of tuples where
 # each tuple (for each entry in the results)
@@ -107,20 +120,23 @@ class ADUCConnection:
         return mod_ldapify_result(self.conn)
 
     def update(self, dn, orig_map, modattr, addattr):
+        result = True
         try:
             if len(modattr):
                 oldattr = {}
                 for key in modattr:
                     oldattr[key] = orig_map.get(key, [])
                 print ('##### attempting mod %s'%modattr)
-                self.l.modify_s(dn, modlist(oldattr, modattr))
+                self.conn.modify(dn, modlist(modattr))
                 print ('##### appeared to work mod %s with %s'%(dn,modattr))
+                result = (self.conn.result['result'] == 0)
             if len(addattr):
                 print ('##### attempting add %s'%addattr)
-                self.l.add_s(dn, addlist(addattr))
+                self.conn.modify(dn, addlist(addattr))
                 print ('##### appeared to work add %s with %s'%(dn,addattr))
+                result = (self.conn.result['result'] == 0)
         except Exception as e:
             print ('##### exception %s'%e)
-            return False
-        return True
+            result = False
+        return result
 
