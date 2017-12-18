@@ -54,8 +54,10 @@ class ADUCConnection:
             # #FIXME this is just temporary code to get us over the fact
             # that sasl bind isn't working for me yet
             if self.sasl_bind_working:
+                import ssl
+                tls = Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2)
                 self.server = Server(cldap_ret.pdc_dns_name, use_ssl=True, tls=tls)
-                self.conn = Connection(self.server, authentication=SASL, sasl_mechanism=KERBEROS)
+                self.conn = Connection(self.server, user = "Administrator@TESTDOMAIN1.MY.COM", authentication=SASL, sasl_mechanism=KERBEROS)
             else:
                 # #FIXME test code, this passess username and password over
                 # the network in clear text 
@@ -66,7 +68,7 @@ class ADUCConnection:
             # and we should just error out, otherwise we are transmitting
             # passwords in cleartext 
             self.server = Server(cldap_ret.pdc_dns_name, get_info=ALL)
-            self.conn = Connection(server, user='%s@%s' %s (self.creds.get_username(), self.realm) if not self.realm in self.creds.get_username() else self.creds.get_username(), password = self.creds.get_password())
+            self.conn = Connection(self.server, user='%s@%s' %s (self.creds.get_username(), self.realm) if not self.realm in self.creds.get_username() else self.creds.get_username(), password = self.creds.get_password())
         self.conn.bind()
 
     def __kinit_for_gssapi(self):
