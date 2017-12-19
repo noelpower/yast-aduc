@@ -61,27 +61,17 @@ class ADUCConnection:
         self.realm = lp.get('realm')
         net = Net(creds=creds, lp=lp)
         cldap_ret = net.finddc(domain=self.realm, flags=(nbt.NBT_SERVER_LDAP | nbt.NBT_SERVER_DS))
-        self.sasl_bind_working = False
-
+        username = '%s@%s' % (self.creds.get_username(), self.realm) if not self.realm in self.creds.get_username() else self.creds.get_username()
         if self.__kinit_for_gssapi():
-            # #FIXME this is just temporary code to get us over the fact
-            # that sasl bind isn't working for me yet
-            if self.sasl_bind_working:
-                import ssl
-                tls = Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2)
-                self.server = Server(cldap_ret.pdc_dns_name, use_ssl=True, tls=tls)
-                self.conn = Connection(self.server, user = "Administrator@TESTDOMAIN1.MY.COM", authentication=SASL, sasl_mechanism=KERBEROS)
-            else:
-                # #FIXME test code, this passess username and password over
-                # the network in clear text 
-                self.server = Server(cldap_ret.pdc_dns_name, get_info=ALL)
-                self.conn = Connection(self.server, user='%s@%s' % (self.creds.get_username(), self.realm) if not self.realm in self.creds.get_username() else self.creds.get_username(), password = self.creds.get_password())
+            import ssl
+            self.server = Server(cldap_ret.pdc_dns_name)
+            self.conn = Connection(self.server, user = username, authentication=SASL, sasl_mechanism=KERBEROS)
         else:
             # #FIXME I think this should be removed in a production system
             # and we should just error out, otherwise we are transmitting
             # passwords in cleartext 
-            self.server = Server(cldap_ret.pdc_dns_name, get_info=ALL)
-            self.conn = Connection(self.server, user='%s@%s' %s (self.creds.get_username(), self.realm) if not self.realm in self.creds.get_username() else self.creds.get_username(), password = self.creds.get_password())
+            self.server = Server(cldap_ret.pdc_dns_name)
+            self.conn = Connection(self.server, user = username, password = self.creds.get_password())
         self.conn.bind()
 
     def __kinit_for_gssapi(self):
