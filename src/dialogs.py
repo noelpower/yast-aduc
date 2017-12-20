@@ -371,7 +371,7 @@ class ADUC:
                     UI.ReplaceWidget('new_but',  MenuButton(Id('new'), "New", [Item(Id('new_comp'), 'Computer')]))
                 else:
                     UI.ReplaceWidget('rightPane', Empty())
-                    UI.ReplaceWidget('new_but',  MenuButton(Id('new'), "New", []))
+                    UI.ReplaceWidget('new_but',  MenuButton(Id('new'), Opt('disabled'), "New", []))
             elif str(ret) == 'next':
                 self.__show_properties(choice)
             elif str(ret) == 'user_items':
@@ -408,7 +408,7 @@ class ADUC:
                 Item('Computers', True),
             ]),
         ]),
-                HBox(ReplacePoint(Id('new_but'), MenuButton(Id('new'), "New", [])), PushButton(Id('delete'), "Delete"))
+                HBox(ReplacePoint(Id('new_but'), MenuButton(Id('new'), Opt('disabled'), "New", [])), PushButton(Id('delete'), "Delete"))
                 )
 
 
