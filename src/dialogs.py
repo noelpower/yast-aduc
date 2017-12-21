@@ -17,7 +17,23 @@ def dump(obj):
         value = obj[1][key]
         print ("item[%d] key %s value type %s value ->%s<-"%(i,key, type(value), value))
         i = i + 1
-            
+
+class MessageBox:
+    def __init__(self, message):
+        self.message = message
+
+    def Show(self):
+        UI.OpenDialog(
+          VBox(
+            Label(
+              self.message
+            ),
+            PushButton(Opt("default"), "&OK")
+          )
+        )
+        UI.UserInput()
+        UI.CloseDialog()
+
 UserDataModel = {
     'general' : {
         'givenName' : 'First Name:',
@@ -301,6 +317,12 @@ class ADUC:
             syslog(LOG_EMERG, str(e))
         return computers
 
+    def __delete_selected_user(self):
+        currentItemName = UI.QueryWidget('user_items', 'CurrentItem')
+        searchList = self.users()
+        currentItem = self.__find_by_name(searchList, currentItemName)
+        return self.conn.delete_user(currentItem[0])
+
     def __get_creds(self, creds):
         if not creds.get_username() or not creds.get_password():
             UI.OpenDialog(self.__password_prompt(creds.get_username(), creds.get_password()))
@@ -366,12 +388,15 @@ class ADUC:
                 if choice == 'Users':
                     UI.ReplaceWidget('rightPane', self.__users_tab())
                     UI.ReplaceWidget('new_but',  MenuButton(Id('new'), "New", [Item(Id('new_user'), 'User'), Item(Id('new_group'), 'Group')]))
+                    UI.ChangeWidget(Id('delete'), "Enabled", True)
                 elif choice == 'Computers':
                     UI.ReplaceWidget('rightPane', self.__computer_tab())
                     UI.ReplaceWidget('new_but',  MenuButton(Id('new'), "New", [Item(Id('new_comp'), 'Computer')]))
+                    UI.ChangeWidget(Id('delete'), "Enabled", True)
                 else:
                     UI.ReplaceWidget('rightPane', Empty())
                     UI.ReplaceWidget('new_but',  MenuButton(Id('new'), Opt('disabled'), "New", []))
+                    UI.ChangeWidget(Id('delete'), "Enabled", False)
             elif str(ret) == 'next':
                 self.__show_properties(choice)
             elif str(ret) == 'user_items':
@@ -379,8 +404,15 @@ class ADUC:
             elif str(ret) == 'comp_items':
                 self.__show_properties('Computers')
             elif str(ret) == 'new_user':
-                NewUser(self.conn, self.realm).Show()
-
+                prev_list = UI.QueryWidget(Id('user_items'), 'Items')
+                if NewUser(self.conn, self.realm).Show():
+                    # Refresh users list if successful
+                    UI.ChangeWidget(Id('user_items'), 'Items', self.__users_tab_data())
+            elif str(ret) == 'delete':
+                if choice == 'Users':
+                    if self.__delete_selected_user():
+                        # Refresh users list if successful
+                        UI.ChangeWidget(Id('user_items'), 'Items', self.__users_tab_data())
         return ret
 
     def __help(self):
@@ -392,8 +424,11 @@ class ADUC:
                 if item[1]['cn'][-1] == name:
                     return item
         return None 
-    def __users_tab(self):
+    def __users_tab_data(self):
         items = [Item(user[1]['cn'][-1], user[1]['objectClass'][-1].title(), user[1]['description'][-1] if 'description' in user[1] else '') for user in self.users()]
+        return items
+    def __users_tab(self):
+        items = self.__users_tab_data()
         return Table(Id('user_items'), Opt('notify'), Header('Name', 'Type', 'Description'), items)
 
     def __computer_tab(self):
@@ -408,7 +443,7 @@ class ADUC:
                 Item('Computers', True),
             ]),
         ]),
-                HBox(ReplacePoint(Id('new_but'), MenuButton(Id('new'), Opt('disabled'), "New", [])), PushButton(Id('delete'), "Delete"))
+                HBox(ReplacePoint(Id('new_but'), MenuButton(Id('new'), Opt('disabled'), "New", [])), PushButton(Id('delete'), Opt('disabled'), "Delete"))
                 )
 
 
@@ -432,14 +467,33 @@ class NewUser:
                 Left(InputField(Id('displayName'), Opt('hstretch'), 'Full name:')),
                 Left(Left(HBox(InputField(Id('sAMAccountName'), Opt('hstretch'), 'User Logon name:'), InputField(Id('domainName'), Opt('hstretch'), 'Domain', '@%s'%self.realm)))),
                 Right(
-                    HBox( PushButton(Id('newuser_ok'), 'OK'),
-                        PushButton(Id('newuser_cancel'), 'Cancel'))),
+                    HBox( PushButton(Id('ok'), 'OK'),
+                        PushButton(Id('cancel'), 'Cancel'))),
             )
+
+    def  __can_create_new_user(self):
+        keys = {'givenName', 'sn', 'initials', 'displayName', 'sAMAccountName'}
+        new_user_values = {}
+        has_valid_values = True;
+        for key in keys:
+            new_user_values[key] = UI.QueryWidget(Id(key), 'Value')
+            if not new_user_values[key]:
+                print ("no value for %s"%key)
+                has_valid_values = False
+        if has_valid_values and self.conn.add_new_user(new_user_values):
+            print ('yay! have created new user'); 
+        return has_valid_values
 
     def Show(self):
         UI.OpenDialog(self.__content())
+        success = False
         while True:
             subret = UI.UserInput()
-            UI.CloseDialog()
-            break;
-
+            if subret == 'ok':
+                if not self.__can_create_new_user():
+                    MessageBox("Failed to create new user").Show()
+                    continue
+                success = True
+            break
+        UI.CloseDialog()
+        return success

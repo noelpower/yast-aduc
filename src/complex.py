@@ -7,7 +7,7 @@ import uuid
 import re
 from subprocess import Popen, PIPE
 from syslog import syslog, LOG_INFO, LOG_ERR, LOG_DEBUG, LOG_EMERG, LOG_ALERT
-from ldap3 import Server, Connection, Tls, SASL, KERBEROS, ALL, SUBTREE,  ALL_ATTRIBUTES, MODIFY_REPLACE, MODIFY_ADD
+from ldap3 import Server, Connection, Tls, SASL, KERBEROS, ALL, SUBTREE,  ALL_ATTRIBUTES, MODIFY_REPLACE, MODIFY_ADD, ObjectDef, Reader, Writer
 
 def modlist(in_mod_attrs):
     out_mod_attrs = {}
@@ -130,3 +130,30 @@ class ADUCConnection:
             result = False
         return result
 
+    def add_new_user(self, attrs):
+        result = True
+        basedn = self.__well_known_container('users')
+        dn = 'CN=%s,%s' % (attrs['displayName'], basedn)
+        print('adding new user for dn %s'%dn)
+        obj_user = ObjectDef('user', self.conn)
+        obj_user += 'sAMAccountName'
+        r = Reader(self.conn, obj_user, basedn)
+        w = Writer.from_cursor(r)
+        w.new(dn)
+        for key in attrs:
+            w[0][key] = attrs[key]
+        result = w[0].entry_commit_changes() 
+        return result
+
+    def delete_user(self, dn):
+        result = False
+        basedn = self.__well_known_container('users')
+        obj_user = ObjectDef('user', self.conn)
+        query = '(distinguishedName=%s)' % dn
+        r = Reader(self.conn, obj_user, basedn, query)
+        r.search()
+        if len(r) == 1:
+            w = Writer.from_cursor(r)
+            w[0].entry_delete()
+            result = w[0].entry_commit_changes() 
+        return result
