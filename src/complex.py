@@ -64,7 +64,12 @@ class ADUCConnection:
         username = '%s@%s' % (self.creds.get_username(), self.realm) if not self.realm in self.creds.get_username() else self.creds.get_username()
         if self.__kinit_for_gssapi():
             import ssl
-            self.server = Server(cldap_ret.pdc_dns_name)
+            sslandtls = False
+            if not sslandtls: # FIXME can't get this to work at the moment
+                self.server = Server(cldap_ret.pdc_dns_name)
+            else:
+                tls = Tls(validate=ssl.CERT_NONE, version=ssl.PROTOCOL_TLSv1_2)
+                self.server = Server(cldap_ret.pdc_dns_name, use_ssl=True, tls=tls)
             self.conn = Connection(self.server, user = username, authentication=SASL, sasl_mechanism=KERBEROS)
         else:
             # #FIXME I think this should be removed in a production system
@@ -72,8 +77,12 @@ class ADUCConnection:
             # passwords in cleartext 
             self.server = Server(cldap_ret.pdc_dns_name)
             self.conn = Connection(self.server, user = username, password = self.creds.get_password())
-        self.conn.bind()
-
+        try:
+            self.conn.bind()
+        except Exception as e:
+            print ("bind failed, message: %s"%e)
+            traceback.print_exc(file=sys.stdout)
+            
     def __kinit_for_gssapi(self):
         p = Popen(['kinit', '%s@%s' % (self.creds.get_username(), self.realm) if not self.realm in self.creds.get_username() else self.creds.get_username()], stdin=PIPE, stdout=PIPE)
         p.stdin.write(('%s\n'%self.creds.get_password()).encode())
@@ -142,7 +151,15 @@ class ADUCConnection:
         w.new(dn)
         for key in attrs:
             w[0][key] = attrs[key]
-        result = w[0].entry_commit_changes() 
+        # #TODO #FIXEME we should be able to set the initial password but
+        # we get an  exception when trying this
+        #   failed to commit changes {'result': 53, 'description': 'unwillingToPerform', 'dn': '', 'message': '0000001F: SvcErr: DSID-031A129B, problem 5003 (WILL_NOT_PERFORM), data 0\n\x00', 'referrals': None, 'type': 'addResponse'}
+        add_pass_fails = True
+        if not add_pass_fails:
+            w[0]['unicodePwd'] = '"1CrappyPassword"'.encode('utf-16')[2:]
+        result = w[0].entry_commit_changes()
+        if not result:
+            print ('failed to commit changes %s'%self.conn.result)
         return result
 
     def delete_user(self, dn):

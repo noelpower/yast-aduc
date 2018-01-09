@@ -149,7 +149,7 @@ class TabProps(object):
         self.tabModel = TabModel(self.props_map)
         self.contents = contents
         self.initial_tab = start_tab
-        #dump(obj)
+        dump(obj)
 
     def __multitab(self):
         raise NotImplementedError()
@@ -496,7 +496,8 @@ class NewUser:
                 has_valid_values = False;
 
         if has_valid_values:
-            new_user_values['userPrincipalName'] = '%s@%s' % (new_user_values['userPrincipalName'], UI.QueryWidget(Id('domainName', 'Value')))
+            #new_user_values['userPrincipalName'] = '%s@%s' % (new_user_values['userPrincipalName'], UI.QueryWidget(Id('domainName', 'Value')))
+            new_user_values['userPrincipalName'] = '%s@%s' % (new_user_values['userPrincipalName'], self.realm)
             print ("userPrincipalName %s sAMAccountName %s" %(new_user_values['userPrincipalName'], new_user_values['sAMAccountName']))
             added_user = self.conn.add_new_user(new_user_values)
             if added_user:
